@@ -4,6 +4,10 @@ export function parseOffTime(input: string): OffTime | null {
   const trimmed = input.trim().toLowerCase();
   if (trimmed === "18:30" || trimmed === "6:30" || trimmed === "6:30pm" || trimmed === "6:30 pm") return "18:30";
   if (trimmed === "19:30" || trimmed === "7:30" || trimmed === "7:30pm" || trimmed === "7:30 pm") return "19:30";
+  // Ethiopian clock display equivalents (for user convenience):
+  // 6:30 PM => 12:30, 7:30 PM => 1:30
+  if (trimmed === "12:30" || trimmed === "12:30pm" || trimmed === "12:30 pm") return "18:30";
+  if (trimmed === "1:30" || trimmed === "1:30pm" || trimmed === "1:30 pm") return "19:30";
   return null;
 }
 

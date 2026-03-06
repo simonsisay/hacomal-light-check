@@ -2,6 +2,7 @@ import express from "express";
 import TelegramBot from "node-telegram-bot-api";
 import { loadConfig } from "./config";
 import { registerHandlers } from "./bot/handlers";
+import { setBotCommands } from "./bot/commands";
 import { openSettingsStore } from "./store";
 
 function withoutTrailingSlash(url: string): string {
@@ -15,6 +16,7 @@ async function main() {
   if (config.nodeEnv === "development") {
     const bot = new TelegramBot(config.botToken, { polling: true });
     registerHandlers(bot, store);
+    await setBotCommands(bot);
     // eslint-disable-next-line no-console
     console.log("Bot running in development (long polling).");
     return;
@@ -22,6 +24,7 @@ async function main() {
 
   const bot = new TelegramBot(config.botToken, { polling: false });
   registerHandlers(bot, store);
+  await setBotCommands(bot);
 
   const app = express();
   app.use(express.json({ limit: "1mb" }));

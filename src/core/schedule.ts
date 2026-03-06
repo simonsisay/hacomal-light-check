@@ -37,17 +37,6 @@ export function outageForDate(anchor: Anchor, targetDate: string): Outage {
   return { offStart, backOn, offTime };
 }
 
-export function formatOffTime(offTime: OffTime): string {
-  const human = offTime === "18:30" ? "6:30 PM" : "7:30 PM";
-  return `${human} (${offTime})`;
-}
-
-export function formatOutage(outage: Outage): string {
-  const dateStr = outage.offStart.setZone(ADDIS_ZONE).toFormat("ccc yyyy-LL-dd");
-  const backHuman = outage.backOn.setZone(ADDIS_ZONE).toFormat("h:mm a");
-  return `${dateStr}: power off at ${formatOffTime(outage.offTime)}, back at ${backHuman}`;
-}
-
 export function pickNextOutage(anchor: Anchor, now: DateTime = addisNow()): Outage {
   const today = addisTodayDate(now);
   const todayOutage = outageForDate(anchor, today);

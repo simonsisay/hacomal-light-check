@@ -39,3 +39,12 @@ pnpm start
 The app will set the Telegram webhook to:
 
 `{PUBLIC_BASE_URL}/telegram/{WEBHOOK_SECRET}`
+
+### Render settings (important)
+
+If you deploy on Render, make sure Render actually runs the TypeScript build step:
+
+- Build Command: `pnpm install --frozen-lockfile && pnpm build`
+- Start Command: `pnpm start`
+
+If Build Command is only `pnpm install`, you will get `Cannot find module .../dist/index.js`.

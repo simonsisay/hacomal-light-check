@@ -1,4 +1,4 @@
-export type OffTime = "18:30" | "19:30";
+import type { OffTime } from "../core/parse";
 
 export type UserSettings = {
   telegramUserId: number;
@@ -11,4 +11,3 @@ export type SettingsStore = {
   upsertUserSettings(settings: UserSettings, nowIso: string): void;
   resetUserSettings(telegramUserId: number): void;
 };
-

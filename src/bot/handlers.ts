@@ -4,21 +4,32 @@ import { parseOffTime, type OffTime } from "../core/parse";
 import {
   addisNow,
   addisTodayDate,
-  formatOutage,
+  ADDIS_ZONE,
   outageForDate,
   pickNextOutage,
 } from "../core/schedule";
 import type { SettingsStore, UserSettings } from "../store/types";
+import { labels, t } from "../texts";
 
 const TIME_BUTTONS: TelegramBot.SendMessageOptions = {
   reply_markup: {
     inline_keyboard: [
       [
-        { text: "6:30 PM (18:30)", callback_data: "settoday:18:30" },
-        { text: "7:30 PM (19:30)", callback_data: "settoday:19:30" },
+        { text: t("buttons.off_1830"), callback_data: "settoday:18:30" },
+        { text: t("buttons.off_1930"), callback_data: "settoday:19:30" },
       ],
     ],
   },
+};
+
+const MAIN_KEYBOARD: TelegramBot.SendMessageOptions = {
+  reply_markup: {
+    keyboard: [
+      [{ text: labels.today() }, { text: labels.tomorrow() }, { text: labels.next() }],
+      [{ text: labels.setToday() }, { text: labels.status() }, { text: labels.reset() }],
+    ],
+    resize_keyboard: true
+  }
 };
 
 function mustBePrivate(
@@ -27,11 +38,25 @@ function mustBePrivate(
   chatType?: string
 ): boolean {
   if (chatType === "private") return true;
-  void bot.sendMessage(
-    chatId,
-    "Please DM me in a private chat to use this bot."
-  );
+  void bot.sendMessage(chatId, t("messages.private_only"), MAIN_KEYBOARD);
   return false;
+}
+
+function formatTimeAm(dt: DateTime): string {
+  const addis = dt.setZone(ADDIS_ZONE);
+  const hour24 = addis.hour;
+  const hour12 = ((hour24 + 11) % 12) + 1;
+  const minute = String(addis.minute).padStart(2, "0");
+  const part =
+    hour24 < 12 ? t("time.morning") : hour24 < 18 ? t("time.afternoon") : t("time.evening");
+  return `${hour12}:${minute} ${part}`;
+}
+
+function formatOutageLine(offStart: DateTime, backOn: DateTime, offTime: OffTime): string {
+  const date = offStart.setZone(ADDIS_ZONE).toFormat("yyyy-LL-dd");
+  const off = offTime === "18:30" ? t("buttons.off_1830") : t("buttons.off_1930");
+  const back = formatTimeAm(backOn);
+  return t("outage.line", { date, off, back });
 }
 
 function settingsOrPrompt(
@@ -42,11 +67,8 @@ function settingsOrPrompt(
 ): UserSettings | null {
   const settings = store.getUserSettings(userId);
   if (settings) return settings;
-  void bot.sendMessage(
-    chatId,
-    "I don’t know your schedule yet. Set today’s off time:",
-    TIME_BUTTONS
-  );
+  void bot.sendMessage(chatId, t("messages.need_set"), MAIN_KEYBOARD);
+  void bot.sendMessage(chatId, t("messages.set_first"), TIME_BUTTONS);
   return null;
 }
 
@@ -69,13 +91,19 @@ async function sendToday(
       { anchorDate: settings.anchorDate, anchorTime: settings.anchorTime },
       now
     );
+    const nextLine = formatOutageLine(next.offStart, next.backOn, next.offTime);
     await bot.sendMessage(
       chatId,
-      `Today’s outage already started/passed.\nNext: ${formatOutage(next)}`
+      t("messages.today_passed", { line: nextLine }),
+      MAIN_KEYBOARD
     );
     return;
   }
-  await bot.sendMessage(chatId, formatOutage(outage));
+  await bot.sendMessage(
+    chatId,
+    formatOutageLine(outage.offStart, outage.backOn, outage.offTime),
+    MAIN_KEYBOARD
+  );
 }
 
 async function sendTomorrow(
@@ -91,7 +119,11 @@ async function sendTomorrow(
     { anchorDate: settings.anchorDate, anchorTime: settings.anchorTime },
     tomorrow
   );
-  await bot.sendMessage(chatId, formatOutage(outage));
+  await bot.sendMessage(
+    chatId,
+    formatOutageLine(outage.offStart, outage.backOn, outage.offTime),
+    MAIN_KEYBOARD
+  );
 }
 
 async function sendNext(
@@ -106,7 +138,8 @@ async function sendNext(
     anchorDate: settings.anchorDate,
     anchorTime: settings.anchorTime,
   });
-  await bot.sendMessage(chatId, `Next: ${formatOutage(outage)}`);
+  const line = formatOutageLine(outage.offStart, outage.backOn, outage.offTime);
+  await bot.sendMessage(chatId, t("messages.next_line", { line }), MAIN_KEYBOARD);
 }
 
 async function sendStatus(
@@ -117,16 +150,13 @@ async function sendStatus(
 ) {
   const settings = store.getUserSettings(userId);
   if (!settings) {
-    await bot.sendMessage(
-      chatId,
-      "No schedule saved yet. Use /settoday to set today’s off time.",
-      TIME_BUTTONS
-    );
+    await bot.sendMessage(chatId, t("messages.status_none", { setTodayBtn: labels.setToday() }), MAIN_KEYBOARD);
     return;
   }
   await bot.sendMessage(
     chatId,
-    `Saved anchor:\n- date: ${settings.anchorDate} (Addis Ababa)\n- time: ${settings.anchorTime}\n\nUse /today to check today.`
+    t("messages.status_saved", { date: settings.anchorDate, time: settings.anchorTime }),
+    MAIN_KEYBOARD
   );
 }
 
@@ -143,20 +173,15 @@ async function handleSetTodayValue(
     { telegramUserId: userId, anchorDate, anchorTime: offTime },
     nowIso
   );
-  await bot.sendMessage(
-    chatId,
-    `Saved. Anchor set to today (${anchorDate}) at ${offTime}.\nAsk /today anytime.`
-  );
+  await bot.sendMessage(chatId, t("messages.saved", { date: anchorDate, time: offTime }), MAIN_KEYBOARD);
+  await bot.sendMessage(chatId, t("messages.ask_anytime", { todayBtn: labels.today() }), MAIN_KEYBOARD);
 }
 
 export function registerHandlers(bot: TelegramBot, store: SettingsStore) {
   bot.onText(/^\/start\b/i, async (msg) => {
     if (!mustBePrivate(bot, msg.chat.id, msg.chat.type)) return;
-    await bot.sendMessage(
-      msg.chat.id,
-      "Hi! I can tell you today’s 1-hour power-off time (Addis Ababa).\n\nFirst, set today’s off time:",
-      TIME_BUTTONS
-    );
+    await bot.sendMessage(msg.chat.id, t("messages.welcome"), MAIN_KEYBOARD);
+    await bot.sendMessage(msg.chat.id, t("messages.set_first"), TIME_BUTTONS);
   });
 
   bot.onText(/^\/settoday(?:\s+(.+))?\b/i, async (msg, match) => {
@@ -166,17 +191,18 @@ export function registerHandlers(bot: TelegramBot, store: SettingsStore) {
     if (arg) {
       const parsed = parseOffTime(arg);
       if (!parsed) {
-      await bot.sendMessage(
-        msg.chat.id,
-        "Invalid time. Use 18:30 or 19:30, or tap a button:",
-        TIME_BUTTONS
-      );
-      return;
-    }
+        await bot.sendMessage(
+          msg.chat.id,
+          t("messages.invalid_time"),
+          MAIN_KEYBOARD
+        );
+        await bot.sendMessage(msg.chat.id, t("messages.set_first"), TIME_BUTTONS);
+        return;
+      }
       await handleSetTodayValue(bot, msg.chat.id, store, userId, parsed);
       return;
     }
-    await bot.sendMessage(msg.chat.id, "Set today’s off time:", TIME_BUTTONS);
+    await bot.sendMessage(msg.chat.id, t("messages.set_first"), TIME_BUTTONS);
   });
 
   bot.onText(/^\/today\b/i, async (msg) => {
@@ -205,7 +231,8 @@ export function registerHandlers(bot: TelegramBot, store: SettingsStore) {
     store.resetUserSettings(userId);
     await bot.sendMessage(
       msg.chat.id,
-      "Reset done. Use /settoday to set today’s off time again."
+      t("messages.reset_done", { setTodayBtn: labels.setToday() }),
+      MAIN_KEYBOARD
     );
   });
 
@@ -232,14 +259,16 @@ export function registerHandlers(bot: TelegramBot, store: SettingsStore) {
     if (text.startsWith("/")) return; // handled by onText
 
     const userId = msg.from?.id ?? msg.chat.id;
-    if (text === "today")
-      return void (await sendToday(bot, msg.chat.id, store, userId));
-    if (text === "tomorrow")
-      return void (await sendTomorrow(bot, msg.chat.id, store, userId));
-    if (text === "next")
-      return void (await sendNext(bot, msg.chat.id, store, userId));
-    if (text === "status")
-      return void (await sendStatus(bot, msg.chat.id, store, userId));
+    const raw = msg.text.trim();
+    if (raw === labels.today()) return void (await sendToday(bot, msg.chat.id, store, userId));
+    if (raw === labels.tomorrow()) return void (await sendTomorrow(bot, msg.chat.id, store, userId));
+    if (raw === labels.next()) return void (await sendNext(bot, msg.chat.id, store, userId));
+    if (raw === labels.status()) return void (await sendStatus(bot, msg.chat.id, store, userId));
+    if (raw === labels.setToday()) return void (await bot.sendMessage(msg.chat.id, t("messages.set_first"), TIME_BUTTONS));
+    if (raw === labels.reset()) {
+      store.resetUserSettings(userId);
+      return void (await bot.sendMessage(msg.chat.id, t("messages.reset_done", { setTodayBtn: labels.setToday() }), MAIN_KEYBOARD));
+    }
 
     const maybeTime = parseOffTime(text);
     if (maybeTime)

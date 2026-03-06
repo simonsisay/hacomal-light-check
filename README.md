@@ -1,6 +1,6 @@
 # Power-off Telegram bot
 
-A simple Telegram bot that tells each user what time the power will go off **today** (either **6:30 PM** or **7:30 PM**) in Addis Ababa time, alternating daily after the user sets an initial “today” anchor.
+A simple Telegram bot that tells each user what time the power will go off **today** (either **6:30 PM** or **7:30 PM**) in Hacomal Residential apartment, alternating daily after the user sets an initial “today” anchor.
 
 ## Setup (manual steps)
 

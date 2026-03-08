@@ -12,13 +12,23 @@ function deriveJsonPath(fromPath: string): string {
 }
 
 export function openSettingsStore(backend: StoreBackend, storePath: string): SettingsStore {
-  if (backend === "json") return openJsonStore(storePath);
-  if (backend === "sqlite") return openSqliteStore(storePath);
+  if (backend === "json") {
+    // eslint-disable-next-line no-console
+    console.log(`Settings store: json (${storePath})`);
+    return openJsonStore(storePath);
+  }
+  if (backend === "sqlite") {
+    // eslint-disable-next-line no-console
+    console.log(`Settings store: sqlite (${storePath})`);
+    return openSqliteStore(storePath);
+  }
 
   // auto
   if (storePath.endsWith(".json")) return openJsonStore(storePath);
 
   try {
+    // eslint-disable-next-line no-console
+    console.log(`Settings store: sqlite (${storePath})`);
     return openSqliteStore(storePath);
   } catch (err) {
     const jsonPath = deriveJsonPath(storePath);
@@ -27,8 +37,9 @@ export function openSettingsStore(backend: StoreBackend, storePath: string): Set
       `SQLite unavailable (better-sqlite3 native bindings not found). Falling back to JSON store at: ${jsonPath}`
     );
     // eslint-disable-next-line no-console
-    console.warn(String(err));
+    console.warn(err instanceof Error ? err.message : String(err));
+    // eslint-disable-next-line no-console
+    console.log(`Settings store: json (${jsonPath})`);
     return openJsonStore(jsonPath);
   }
 }
-

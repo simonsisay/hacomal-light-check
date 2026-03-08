@@ -48,3 +48,13 @@ If you deploy on Render, make sure Render actually runs the TypeScript build ste
 - Start Command: `pnpm start`
 
 If Build Command is only `pnpm install`, you will get `Cannot find module .../dist/index.js`.
+
+### Render persistence (important)
+
+Render’s filesystem is not guaranteed to persist across restarts/redeploys. If you store settings in a local file (JSON/SQLite) without a persistent disk, users will eventually be asked to set their time again.
+
+Recommended on Render:
+- Add a persistent disk mounted at `/data`
+- Set:
+  - `STORE_BACKEND=json` (avoids the better-sqlite3 native binding issue)
+  - `STORE_PATH=/data/bot.json`

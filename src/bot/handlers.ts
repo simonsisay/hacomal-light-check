@@ -71,8 +71,8 @@ async function settingsOrPrompt(
 ): Promise<UserSettings | null> {
   const settings = await store.getUserSettings(userId);
   if (settings) return settings;
-  void bot.sendMessage(chatId, t("messages.need_set"), MAIN_KEYBOARD);
-  void bot.sendMessage(chatId, t("messages.set_first"), TIME_BUTTONS);
+  await bot.sendMessage(chatId, t("messages.need_set"), MAIN_KEYBOARD);
+  await bot.sendMessage(chatId, t("messages.set_first"), TIME_BUTTONS);
   return null;
 }
 

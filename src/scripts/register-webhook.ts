@@ -8,7 +8,7 @@ async function main() {
   const url = webhookUrl(config);
 
   await setBotCommands(bot);
-  await bot.setWebHook(url, { drop_pending_updates: true });
+  await bot.setWebHook(url, { drop_pending_updates: true } as any);
   const info = await bot.getWebHookInfo();
 
   // eslint-disable-next-line no-console

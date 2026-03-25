@@ -3,15 +3,13 @@
     "target": "ES2022",
     "module": "commonjs",
     "moduleResolution": "node",
-    "outDir": "dist",
-    "rootDir": "src",
     "strict": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
+    "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["test/**/*.ts"]
+  "include": ["src/**/*.ts", "api/**/*.ts", "test/**/*.ts", "drizzle.config.ts"]
 }

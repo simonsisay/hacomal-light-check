@@ -53,14 +53,9 @@ Dashboard settings:
 - Install Command: `pnpm install`
 - Build Command: leave empty
 - Output Directory: leave empty
+- Node.js Version: `22.x`
 
-The repository also enforces this in [`vercel.json`](/Users/simon/developer/NALU/hacomal-light-check/vercel.json) with:
-
-- `"framework": null`
-- `"buildCommand": null`
-- `"outputDirectory": null`
-
-That is intentional. This project is not a static site and not an Express server on Vercel. It is a small set of `api/*.ts` Node functions, and Vercel should compile those directly without running `pnpm build`.
+This project is not a static site and not an Express server on Vercel. It is a small set of `api/*.ts` Node functions, and Vercel should compile those directly without running `pnpm build`.
 
 Production uses a webhook endpoint:
 

@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "db:push": "drizzle-kit push",
-    "webhook:set": "tsx src/scripts/register-webhook.ts"
+    "webhook:set": "tsx src/scripts/register-webhook.ts",
+    "webhook:info": "tsx src/scripts/webhook-info.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

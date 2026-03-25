@@ -207,124 +207,180 @@ async function handleSetTodayValue(
   );
 }
 
-export function registerHandlers(bot: TelegramBot, store: SettingsStore) {
-  bot.onText(/^\/start\b/i, async (msg: any) => {
-    if (!mustBePrivate(bot, msg.chat.id, msg.chat.type)) return;
-    await bot.sendMessage(msg.chat.id, t("messages.welcome"), MAIN_KEYBOARD);
-    await bot.sendMessage(msg.chat.id, t("messages.set_first"), TIME_BUTTONS);
-  });
+async function handleStartMessage(bot: TelegramBot, chatId: number) {
+  await bot.sendMessage(chatId, t("messages.welcome"), MAIN_KEYBOARD);
+  await bot.sendMessage(chatId, t("messages.set_first"), TIME_BUTTONS);
+}
 
-  bot.onText(/^\/settoday(?:\s+(.+))?\b/i, async (msg: any, match: any) => {
-    if (!mustBePrivate(bot, msg.chat.id, msg.chat.type)) return;
-    const arg = match?.[1];
-    const userId = msg.from?.id ?? msg.chat.id;
-    if (arg) {
-      const parsed = parseOffTime(arg);
-      if (!parsed) {
-        await bot.sendMessage(
-          msg.chat.id,
-          t("messages.invalid_time"),
-          MAIN_KEYBOARD
-        );
-        await bot.sendMessage(
-          msg.chat.id,
-          t("messages.set_first"),
-          TIME_BUTTONS
-        );
-        return;
-      }
-      await handleSetTodayValue(bot, msg.chat.id, store, userId, parsed);
+async function handleReset(
+  bot: TelegramBot,
+  chatId: number,
+  store: SettingsStore,
+  userId: number
+) {
+  await store.resetUserSettings(userId);
+  await bot.sendMessage(
+    chatId,
+    t("messages.reset_done", { setTodayBtn: labels.setToday() }),
+    MAIN_KEYBOARD
+  );
+}
+
+function parseSetTodayCommand(text: string): RegExpExecArray | null {
+  return /^\/settoday(?:@\w+)?(?:\s+(.+))?\b/i.exec(text);
+}
+
+function matchesCommand(text: string, command: string): boolean {
+  return new RegExp(`^\\/${command}(?:@\\w+)?\\b`, "i").test(text);
+}
+
+export async function handleIncomingMessage(
+  bot: TelegramBot,
+  store: SettingsStore,
+  msg: TelegramBot.Message
+) {
+  if (!msg.text) return;
+  if (!mustBePrivate(bot, msg.chat.id, msg.chat.type)) return;
+
+  const raw = msg.text.trim();
+  const text = raw.toLowerCase();
+  const userId = msg.from?.id ?? msg.chat.id;
+
+  if (matchesCommand(raw, "start")) {
+    await handleStartMessage(bot, msg.chat.id);
+    return;
+  }
+
+  const setTodayMatch = parseSetTodayCommand(raw);
+  if (setTodayMatch) {
+    const arg = setTodayMatch[1];
+    if (!arg) {
+      await bot.sendMessage(msg.chat.id, t("messages.set_first"), TIME_BUTTONS);
       return;
     }
-    await bot.sendMessage(msg.chat.id, t("messages.set_first"), TIME_BUTTONS);
-  });
 
-  bot.onText(/^\/today\b/i, async (msg: any) => {
-    if (!mustBePrivate(bot, msg.chat.id, msg.chat.type)) return;
-    await sendToday(bot, msg.chat.id, store, msg.from?.id ?? msg.chat.id);
-  });
-
-  bot.onText(/^\/tomorrow\b/i, async (msg: any) => {
-    if (!mustBePrivate(bot, msg.chat.id, msg.chat.type)) return;
-    await sendTomorrow(bot, msg.chat.id, store, msg.from?.id ?? msg.chat.id);
-  });
-
-  bot.onText(/^\/next\b/i, async (msg: any) => {
-    if (!mustBePrivate(bot, msg.chat.id, msg.chat.type)) return;
-    await sendNext(bot, msg.chat.id, store, msg.from?.id ?? msg.chat.id);
-  });
-
-  bot.onText(/^\/status\b/i, async (msg: any) => {
-    if (!mustBePrivate(bot, msg.chat.id, msg.chat.type)) return;
-    await sendStatus(bot, msg.chat.id, store, msg.from?.id ?? msg.chat.id);
-  });
-
-  bot.onText(/^\/reset\b/i, async (msg: any) => {
-    if (!mustBePrivate(bot, msg.chat.id, msg.chat.type)) return;
-    const userId = msg.from?.id ?? msg.chat.id;
-    await store.resetUserSettings(userId);
-    await bot.sendMessage(
-      msg.chat.id,
-      t("messages.reset_done", { setTodayBtn: labels.setToday() }),
-      MAIN_KEYBOARD
-    );
-  });
-
-  bot.on("callback_query", async (query: any) => {
-    const message = query.message;
-    if (!message) return;
-    if (!mustBePrivate(bot, message.chat.id, message.chat.type)) return;
-
-    const data = query.data ?? "";
-    const match = /^settoday:(18:30|19:30)$/.exec(data);
-    if (!match) return;
-
-    const offTime = match[1] as OffTime;
-    const userId = query.from.id;
-    await handleSetTodayValue(bot, message.chat.id, store, userId, offTime);
-    void bot.answerCallbackQuery(query.id);
-  });
-
-  bot.on("message", async (msg: any) => {
-    if (!msg.text) return;
-    if (!mustBePrivate(bot, msg.chat.id, msg.chat.type)) return;
-
-    const text = msg.text.trim().toLowerCase();
-    if (text.startsWith("/")) return; // handled by onText
-
-    const userId = msg.from?.id ?? msg.chat.id;
-    const raw = msg.text.trim();
-    if (raw === labels.today())
-      return void (await sendToday(bot, msg.chat.id, store, userId));
-    if (raw === labels.tomorrow())
-      return void (await sendTomorrow(bot, msg.chat.id, store, userId));
-    if (raw === labels.next())
-      return void (await sendNext(bot, msg.chat.id, store, userId));
-    if (raw === labels.status())
-      return void (await sendStatus(bot, msg.chat.id, store, userId));
-    if (raw === labels.setToday())
-      return void (await bot.sendMessage(
+    const parsed = parseOffTime(arg);
+    if (!parsed) {
+      await bot.sendMessage(
         msg.chat.id,
-        t("messages.set_first"),
-        TIME_BUTTONS
-      ));
-    if (raw === labels.reset()) {
-      await store.resetUserSettings(userId);
-      return void (await bot.sendMessage(
-        msg.chat.id,
-        t("messages.reset_done", { setTodayBtn: labels.setToday() }),
+        t("messages.invalid_time"),
         MAIN_KEYBOARD
-      ));
+      );
+      await bot.sendMessage(msg.chat.id, t("messages.set_first"), TIME_BUTTONS);
+      return;
     }
 
-    const maybeTime = parseOffTime(text);
-    if (maybeTime)
-      return void (await handleSetTodayValue(
-        bot,
-        msg.chat.id,
-        store,
-        userId,
-        maybeTime
-      ));
+    await handleSetTodayValue(bot, msg.chat.id, store, userId, parsed);
+    return;
+  }
+
+  if (matchesCommand(raw, "today")) {
+    await sendToday(bot, msg.chat.id, store, userId);
+    return;
+  }
+
+  if (matchesCommand(raw, "tomorrow")) {
+    await sendTomorrow(bot, msg.chat.id, store, userId);
+    return;
+  }
+
+  if (matchesCommand(raw, "next")) {
+    await sendNext(bot, msg.chat.id, store, userId);
+    return;
+  }
+
+  if (matchesCommand(raw, "status")) {
+    await sendStatus(bot, msg.chat.id, store, userId);
+    return;
+  }
+
+  if (matchesCommand(raw, "reset")) {
+    await handleReset(bot, msg.chat.id, store, userId);
+    return;
+  }
+
+  if (raw === labels.today()) {
+    await sendToday(bot, msg.chat.id, store, userId);
+    return;
+  }
+
+  if (raw === labels.tomorrow()) {
+    await sendTomorrow(bot, msg.chat.id, store, userId);
+    return;
+  }
+
+  if (raw === labels.next()) {
+    await sendNext(bot, msg.chat.id, store, userId);
+    return;
+  }
+
+  if (raw === labels.status()) {
+    await sendStatus(bot, msg.chat.id, store, userId);
+    return;
+  }
+
+  if (raw === labels.setToday()) {
+    await bot.sendMessage(msg.chat.id, t("messages.set_first"), TIME_BUTTONS);
+    return;
+  }
+
+  if (raw === labels.reset()) {
+    await handleReset(bot, msg.chat.id, store, userId);
+    return;
+  }
+
+  const maybeTime = parseOffTime(text);
+  if (maybeTime) {
+    await handleSetTodayValue(bot, msg.chat.id, store, userId, maybeTime);
+  }
+}
+
+export async function handleIncomingCallbackQuery(
+  bot: TelegramBot,
+  store: SettingsStore,
+  query: TelegramBot.CallbackQuery
+) {
+  const message = query.message;
+  if (!message) return;
+  if (!mustBePrivate(bot, message.chat.id, message.chat.type)) return;
+
+  const data = query.data ?? "";
+  const match = /^settoday:(18:30|19:30)$/.exec(data);
+  if (!match) return;
+
+  const offTime = match[1] as OffTime;
+  const userId = query.from.id;
+  await handleSetTodayValue(bot, message.chat.id, store, userId, offTime);
+  await bot.answerCallbackQuery(query.id);
+}
+
+export async function handleIncomingUpdate(
+  bot: TelegramBot,
+  store: SettingsStore,
+  update: TelegramBot.Update
+) {
+  if (update.message) {
+    await handleIncomingMessage(bot, store, update.message);
+    return;
+  }
+
+  if (update.callback_query) {
+    await handleIncomingCallbackQuery(bot, store, update.callback_query);
+  }
+}
+
+export function registerHandlers(bot: TelegramBot, store: SettingsStore) {
+  bot.on("message", (msg: TelegramBot.Message) => {
+    void handleIncomingMessage(bot, store, msg).catch((error) => {
+      // eslint-disable-next-line no-console
+      console.error("Failed to handle Telegram message", error);
+    });
+  });
+
+  bot.on("callback_query", (query: TelegramBot.CallbackQuery) => {
+    void handleIncomingCallbackQuery(bot, store, query).catch((error) => {
+      // eslint-disable-next-line no-console
+      console.error("Failed to handle Telegram callback query", error);
+    });
   });
 }

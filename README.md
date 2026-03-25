@@ -44,6 +44,16 @@ pnpm db:push
 
 ## Vercel deployment
 
+Vercel should deploy this project as plain Node functions, not as an Express app.
+
+Dashboard settings:
+
+- Framework Preset: `Other`
+- Root Directory: `.`
+- Install Command: `pnpm install`
+- Build Command: leave empty
+- Output Directory: leave empty
+
 Production uses a webhook endpoint:
 
 `{PUBLIC_BASE_URL}/api/telegram/{WEBHOOK_SECRET}`

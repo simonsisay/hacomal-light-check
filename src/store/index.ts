@@ -5,13 +5,15 @@ import type { SettingsStore, UserSettings } from "./types";
 
 export function openSettingsStore(): SettingsStore {
   return {
-    async getUserSettings(telegramUserId: number): Promise<UserSettings | null> {
+    async getUserSettings(
+      telegramUserId: number
+    ): Promise<UserSettings | null> {
       const db = await getDb();
       const [row] = await db
         .select({
           telegramUserId: userSettingsTable.telegramUserId,
           anchorDate: userSettingsTable.anchorDate,
-          anchorTime: userSettingsTable.anchorTime
+          anchorTime: userSettingsTable.anchorTime,
         })
         .from(userSettingsTable)
         .where(eq(userSettingsTable.telegramUserId, telegramUserId))
@@ -24,7 +26,7 @@ export function openSettingsStore(): SettingsStore {
       return {
         telegramUserId: row.telegramUserId,
         anchorDate: row.anchorDate,
-        anchorTime: row.anchorTime as UserSettings["anchorTime"]
+        anchorTime: row.anchorTime as UserSettings["anchorTime"],
       };
     },
 
@@ -42,15 +44,15 @@ export function openSettingsStore(): SettingsStore {
           anchorDate: settings.anchorDate,
           anchorTime: settings.anchorTime,
           createdAt: now,
-          updatedAt: now
+          updatedAt: now,
         })
         .onConflictDoUpdate({
           target: userSettingsTable.telegramUserId,
           set: {
             anchorDate: settings.anchorDate,
             anchorTime: settings.anchorTime,
-            updatedAt: now
-          }
+            updatedAt: now,
+          },
         });
     },
 
@@ -59,6 +61,6 @@ export function openSettingsStore(): SettingsStore {
       await db
         .delete(userSettingsTable)
         .where(eq(userSettingsTable.telegramUserId, telegramUserId));
-    }
+    },
   };
 }

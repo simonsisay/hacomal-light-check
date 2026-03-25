@@ -54,6 +54,14 @@ Dashboard settings:
 - Build Command: leave empty
 - Output Directory: leave empty
 
+The repository also enforces this in [`vercel.json`](/Users/simon/developer/NALU/hacomal-light-check/vercel.json) with:
+
+- `"framework": null`
+- `"buildCommand": null`
+- `"outputDirectory": null`
+
+That is intentional. This project is not a static site and not an Express server on Vercel. It is a small set of `api/*.ts` Node functions, and Vercel should compile those directly without running `pnpm build`.
+
 Production uses a webhook endpoint:
 
 `{PUBLIC_BASE_URL}/api/telegram/{WEBHOOK_SECRET}`

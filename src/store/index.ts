@@ -1,45 +1,64 @@
-import path from "node:path";
-import type { SettingsStore } from "./types";
-import { openJsonStore } from "./jsonStore";
-import { openSqliteStore } from "./sqliteStore";
+import { eq } from "drizzle-orm";
+import { getDb } from "../db/client";
+import { userSettingsTable } from "../db/schema";
+import type { SettingsStore, UserSettings } from "./types";
 
-export type StoreBackend = "auto" | "sqlite" | "json";
+export function openSettingsStore(): SettingsStore {
+  return {
+    async getUserSettings(telegramUserId: number): Promise<UserSettings | null> {
+      const db = await getDb();
+      const [row] = await db
+        .select({
+          telegramUserId: userSettingsTable.telegramUserId,
+          anchorDate: userSettingsTable.anchorDate,
+          anchorTime: userSettingsTable.anchorTime
+        })
+        .from(userSettingsTable)
+        .where(eq(userSettingsTable.telegramUserId, telegramUserId))
+        .limit(1);
 
-function deriveJsonPath(fromPath: string): string {
-  const parsed = path.parse(fromPath);
-  if (parsed.ext) return path.join(parsed.dir, `${parsed.name}.json`);
-  return `${fromPath}.json`;
-}
+      if (!row) {
+        return null;
+      }
 
-export function openSettingsStore(backend: StoreBackend, storePath: string): SettingsStore {
-  if (backend === "json") {
-    // eslint-disable-next-line no-console
-    console.log(`Settings store: json (${storePath})`);
-    return openJsonStore(storePath);
-  }
-  if (backend === "sqlite") {
-    // eslint-disable-next-line no-console
-    console.log(`Settings store: sqlite (${storePath})`);
-    return openSqliteStore(storePath);
-  }
+      return {
+        telegramUserId: row.telegramUserId,
+        anchorDate: row.anchorDate,
+        anchorTime: row.anchorTime as UserSettings["anchorTime"]
+      };
+    },
 
-  // auto
-  if (storePath.endsWith(".json")) return openJsonStore(storePath);
+    async upsertUserSettings(
+      settings: UserSettings,
+      nowIso: string
+    ): Promise<void> {
+      const db = await getDb();
+      const now = new Date(nowIso);
 
-  try {
-    // eslint-disable-next-line no-console
-    console.log(`Settings store: sqlite (${storePath})`);
-    return openSqliteStore(storePath);
-  } catch (err) {
-    const jsonPath = deriveJsonPath(storePath);
-    // eslint-disable-next-line no-console
-    console.warn(
-      `SQLite unavailable (better-sqlite3 native bindings not found). Falling back to JSON store at: ${jsonPath}`
-    );
-    // eslint-disable-next-line no-console
-    console.warn(err instanceof Error ? err.message : String(err));
-    // eslint-disable-next-line no-console
-    console.log(`Settings store: json (${jsonPath})`);
-    return openJsonStore(jsonPath);
-  }
+      await db
+        .insert(userSettingsTable)
+        .values({
+          telegramUserId: settings.telegramUserId,
+          anchorDate: settings.anchorDate,
+          anchorTime: settings.anchorTime,
+          createdAt: now,
+          updatedAt: now
+        })
+        .onConflictDoUpdate({
+          target: userSettingsTable.telegramUserId,
+          set: {
+            anchorDate: settings.anchorDate,
+            anchorTime: settings.anchorTime,
+            updatedAt: now
+          }
+        });
+    },
+
+    async resetUserSettings(telegramUserId: number): Promise<void> {
+      const db = await getDb();
+      await db
+        .delete(userSettingsTable)
+        .where(eq(userSettingsTable.telegramUserId, telegramUserId));
+    }
+  };
 }

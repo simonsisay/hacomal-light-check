@@ -1,1 +1,1 @@
-export { openSettingsStore, type StoreBackend } from "./store/index";
+export { openSettingsStore } from "./store/index";

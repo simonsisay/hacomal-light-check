@@ -7,7 +7,7 @@ export type UserSettings = {
 };
 
 export type SettingsStore = {
-  getUserSettings(telegramUserId: number): UserSettings | null;
-  upsertUserSettings(settings: UserSettings, nowIso: string): void;
-  resetUserSettings(telegramUserId: number): void;
+  getUserSettings(telegramUserId: number): Promise<UserSettings | null>;
+  upsertUserSettings(settings: UserSettings, nowIso: string): Promise<void>;
+  resetUserSettings(telegramUserId: number): Promise<void>;
 };

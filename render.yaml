@@ -1,8 +1,0 @@
-services:
-  - type: web
-    name: power-off-telegram-bot
-    env: node
-    plan: free
-    buildCommand: pnpm install --frozen-lockfile && pnpm build
-    startCommand: pnpm start
-    healthCheckPath: /health

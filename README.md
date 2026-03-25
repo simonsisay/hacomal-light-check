@@ -1,60 +1,65 @@
 # Power-off Telegram bot
 
-A simple Telegram bot that tells each user what time the power will go off **today** (either **6:30 PM** or **7:30 PM**) in Hacomal Residential apartment, alternating daily after the user sets an initial “today” anchor.
+Telegram bot for Hacomal Residential that lets each user save today's outage anchor and then check today's, tomorrow's, or the next outage time in Amharic.
 
-## Setup (manual steps)
+## Stack
 
-1. In Telegram, talk to **@BotFather**:
-   - `/newbot`
-   - Pick a name + username
-   - Copy the **bot token**
-2. Create a `.env` file (copy from `.env.example`) and set `BOT_TOKEN`.
+- TypeScript + `pnpm`
+- `node-telegram-bot-api`
+- Neon Postgres
+- Drizzle ORM
+- Vercel webhook route for production
 
-## Run locally (long polling)
+## Environment
+
+Create `.env` from `.env.example` and set:
+
+- `BOT_TOKEN`
+- `DATABASE_URL`
+- `PUBLIC_BASE_URL`
+- `WEBHOOK_SECRET`
+
+`PUBLIC_BASE_URL` should be your stable Vercel production URL or custom domain.
+
+## Local development
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-### If you see a better-sqlite3 “bindings file” error
+Local development uses Telegram long polling and the same Neon database.
+Starting local dev clears any active webhook first, then starts polling.
+If your Vercel deployment is already live, run `pnpm webhook:set` again after local testing so production receives updates again.
 
-That means the optional SQLite native dependency didn’t compile on your machine. Quick fix:
+## Database
 
-- Set `STORE_BACKEND=json` in your `.env`, then re-run `pnpm dev`.
+The app bootstraps the `user_settings` table automatically at runtime.
 
-## Deploy (webhook)
-
-You must host the bot yourself (Telegram does not host bots). For production:
-
-- Set `BOT_TOKEN`, `PUBLIC_BASE_URL`, `WEBHOOK_SECRET`, and storage env vars (`STORE_BACKEND` / `STORE_PATH`).
-- Build and start:
+If you want Drizzle to manage schema explicitly:
 
 ```bash
-pnpm install
-pnpm build
-pnpm start
+pnpm db:push
 ```
 
-The app will set the Telegram webhook to:
+## Vercel deployment
 
-`{PUBLIC_BASE_URL}/telegram/{WEBHOOK_SECRET}`
+Production uses a webhook endpoint:
 
-### Render settings (important)
+`{PUBLIC_BASE_URL}/api/telegram/{WEBHOOK_SECRET}`
 
-If you deploy on Render, make sure Render actually runs the TypeScript build step:
+After the app is deployed, register the webhook once:
 
-- Build Command: `pnpm install --frozen-lockfile && pnpm build`
-- Start Command: `pnpm start`
+```bash
+pnpm webhook:set
+```
 
-If Build Command is only `pnpm install`, you will get `Cannot find module .../dist/index.js`.
+Useful endpoints:
 
-### Render persistence (important)
+- `POST /api/telegram/[secret]` for Telegram webhook updates
+- `GET /api/health` for a simple health check
 
-Render’s filesystem is not guaranteed to persist across restarts/redeploys. If you store settings in a local file (JSON/SQLite) without a persistent disk, users will eventually be asked to set their time again.
+## Notes
 
-Recommended on Render:
-- Add a persistent disk mounted at `/data`
-- Set:
-  - `STORE_BACKEND=json` (avoids the better-sqlite3 native binding issue)
-  - `STORE_PATH=/data/bot.json`
+- No local file storage is used in production.
+- User settings are stored in Neon, so Vercel cold starts and redeploys do not lose data.

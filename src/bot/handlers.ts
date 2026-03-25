@@ -63,13 +63,13 @@ function formatOutageLine(offStart: DateTime, backOn: DateTime): string {
   return t("outage.line", { date, off, back });
 }
 
-function settingsOrPrompt(
+async function settingsOrPrompt(
   bot: TelegramBot,
   chatId: number,
   store: SettingsStore,
   userId: number
-): UserSettings | null {
-  const settings = store.getUserSettings(userId);
+): Promise<UserSettings | null> {
+  const settings = await store.getUserSettings(userId);
   if (settings) return settings;
   void bot.sendMessage(chatId, t("messages.need_set"), MAIN_KEYBOARD);
   void bot.sendMessage(chatId, t("messages.set_first"), TIME_BUTTONS);
@@ -82,7 +82,7 @@ async function sendToday(
   store: SettingsStore,
   userId: number
 ) {
-  const settings = settingsOrPrompt(bot, chatId, store, userId);
+  const settings = await settingsOrPrompt(bot, chatId, store, userId);
   if (!settings) return;
   const today = addisTodayDate();
   const outage = outageForDate(
@@ -116,7 +116,7 @@ async function sendTomorrow(
   store: SettingsStore,
   userId: number
 ) {
-  const settings = settingsOrPrompt(bot, chatId, store, userId);
+  const settings = await settingsOrPrompt(bot, chatId, store, userId);
   if (!settings) return;
   const tomorrow = addisNow().plus({ days: 1 }).toFormat("yyyy-LL-dd");
   const outage = outageForDate(
@@ -136,7 +136,7 @@ async function sendNext(
   store: SettingsStore,
   userId: number
 ) {
-  const settings = settingsOrPrompt(bot, chatId, store, userId);
+  const settings = await settingsOrPrompt(bot, chatId, store, userId);
   if (!settings) return;
   const outage = pickNextOutage({
     anchorDate: settings.anchorDate,
@@ -156,7 +156,7 @@ async function sendStatus(
   store: SettingsStore,
   userId: number
 ) {
-  const settings = store.getUserSettings(userId);
+  const settings = await store.getUserSettings(userId);
   if (!settings) {
     await bot.sendMessage(
       chatId,
@@ -189,7 +189,7 @@ async function handleSetTodayValue(
 ) {
   const anchorDate = addisTodayDate();
   const nowIso = DateTime.now().toISO() ?? new Date().toISOString();
-  store.upsertUserSettings(
+  await store.upsertUserSettings(
     { telegramUserId: userId, anchorDate, anchorTime: offTime },
     nowIso
   );
@@ -262,7 +262,7 @@ export function registerHandlers(bot: TelegramBot, store: SettingsStore) {
   bot.onText(/^\/reset\b/i, async (msg: any) => {
     if (!mustBePrivate(bot, msg.chat.id, msg.chat.type)) return;
     const userId = msg.from?.id ?? msg.chat.id;
-    store.resetUserSettings(userId);
+    await store.resetUserSettings(userId);
     await bot.sendMessage(
       msg.chat.id,
       t("messages.reset_done", { setTodayBtn: labels.setToday() }),
@@ -309,7 +309,7 @@ export function registerHandlers(bot: TelegramBot, store: SettingsStore) {
         TIME_BUTTONS
       ));
     if (raw === labels.reset()) {
-      store.resetUserSettings(userId);
+      await store.resetUserSettings(userId);
       return void (await bot.sendMessage(
         msg.chat.id,
         t("messages.reset_done", { setTodayBtn: labels.setToday() }),

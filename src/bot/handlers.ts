@@ -89,20 +89,6 @@ async function sendToday(
     { anchorDate: settings.anchorDate, anchorTime: settings.anchorTime },
     today
   );
-  const now = addisNow();
-  if (now >= outage.offStart) {
-    const next = pickNextOutage(
-      { anchorDate: settings.anchorDate, anchorTime: settings.anchorTime },
-      now
-    );
-    const nextLine = formatOutageLine(next.offStart, next.backOn);
-    await bot.sendMessage(
-      chatId,
-      t("messages.today_passed", { line: nextLine }),
-      MAIN_KEYBOARD
-    );
-    return;
-  }
   await bot.sendMessage(
     chatId,
     formatOutageLine(outage.offStart, outage.backOn),

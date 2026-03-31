@@ -16,6 +16,13 @@ describe("schedule", () => {
     expect(outageForDate(anchor, "2026-03-04").offTime).toBe("19:30");
   });
 
+  it("alternates correctly across month boundaries", () => {
+    const anchor = { anchorDate: "2026-03-31", anchorTime: "18:30" as const };
+    expect(outageForDate(anchor, "2026-03-31").offTime).toBe("18:30");
+    expect(outageForDate(anchor, "2026-04-01").offTime).toBe("19:30");
+    expect(outageForDate(anchor, "2026-04-02").offTime).toBe("18:30");
+  });
+
   it("pickNextOutage returns today if before outage start", () => {
     const anchor = { anchorDate: "2026-03-06", anchorTime: "18:30" as const };
     const now = DateTime.fromISO("2026-03-06T17:00:00", { zone: ADDIS_ZONE });
